@@ -1,0 +1,7 @@
+[run]
+branch = True
+source = som
+include = */som/*
+omit =
+    */setup.py
+    som/test/*
