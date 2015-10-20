@@ -1,0 +1,394 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>som &mdash; som 0 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="som 0 documentation" href="index.html"/>
+        <link rel="prev" title="Welcome to som documentation!" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+
+        
+          <a href="index.html" class="icon icon-home"> som
+        
+
+        
+        </a>
+
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+        
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href=""><code class="docutils literal"><span class="pre">som</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-som.som">Self Organizing maps documentation</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">som</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li><code class="docutils literal"><span class="pre">som</span></code></li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/som.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="som">
+<h1><code class="xref py py-mod docutils literal"><span class="pre">som</span></code><a class="headerlink" href="#som" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-som.som">
+<span id="self-organizing-maps-documentation"></span><h2>Self Organizing maps documentation<a class="headerlink" href="#module-som.som" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="som.som.SOMMapper">
+<em class="property">class </em><code class="descclassname">som.som.</code><code class="descname">SOMMapper</code><span class="sig-paren">(</span><em>kshape=(20</em>, <em>20)</em>, <em>n_iter=100</em>, <em>learning_rate=0.1</em>, <em>initialization_func=None</em>, <em>infl_decay_type='default'</em>, <em>topology='rect'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">sklearn.base.BaseEstimator</span></code>, <code class="xref py py-class docutils literal"><span class="pre">sklearn.base.ClassifierMixin</span></code></p>
+<p>This mapper class contains the method for training a self-organized map
+from a given training set. Inspired from the PyMVPA framework SOM Mapper
+class.</p>
+<dl class="docutils">
+<dt>kshape <span class="classifier-delimiter">:</span> <span class="classifier">(int, int)</span></dt>
+<dd>Shape of the internal Kohonen layer. Currently, only 2D Kohonen
+layers are supported, although the length of an axis might be set
+to 1.</dd>
+<dt>niter <span class="classifier-delimiter">:</span> <span class="classifier">int</span></dt>
+<dd>Number of iteration during network training.</dd>
+<dt>learning_rate <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>Initial learning rate, which will continuously decreased during
+network training.</dd>
+<dt>initialization_func: callable or None</dt>
+<dd>Initialization function to set <a href="#id1"><span class="problematic" id="id2">self.K_</span></a>, that should take one
+argument with training samples and return an numpy array. If None,
+then values in the returned array are taken from a standard normal
+distribution.</dd>
+<dt>topology: string</dt>
+<dd>Defines the topology of the map in the output space. Currently is the
+square and hexagonal topologies.</dd>
+</dl>
+<dl class="method">
+<dt id="som.som.SOMMapper.fit">
+<code class="descname">fit</code><span class="sig-paren">(</span><em>X</em>, <em>y=None</em>, <em>K_init=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.fit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform network training.</p>
+<dl class="docutils">
+<dt>X <span class="classifier-delimiter">:</span> <span class="classifier">CSR Sparse Matrix</span></dt>
+<dd>Used for unsupervised training of the SOM.</dd>
+<dt>K_init <span class="classifier-delimiter">:</span> <span class="classifier">CSR sparse matrix / ndarray</span></dt>
+<dd>Provide a K_matrix for chaining the fit process with a
+pre-existing map. The shape must match with the requirements
+of the class (n_features from the samples)</dd>
+<dt>sparse: bool</dt>
+<dd>If the sample matrix is to processed as a sparse matrix</dd>
+</dl>
+<p>It is assumed that prior to calling this method the _pretrain method
+was called with the same argument.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.fit_predict">
+<code class="descname">fit_predict</code><span class="sig-paren">(</span><em>X</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.fit_predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.fit_predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combination of the fitting and placement of the data from the
+INPUT space shape = (n_features) to the OUTPUT space shape = n_nodes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.fit_transform">
+<code class="descname">fit_transform</code><span class="sig-paren">(</span><em>X</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.fit_transform"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.fit_transform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implement the combination of the fit and returning the data.
+Note that the interface is here simplified so that surveying of
+the fitting process is not used.</p>
+<dl class="docutils">
+<dt>X: matrix</dt>
+<dd>CSR matrix of shape = [n_samples, n_features]</dd>
+</dl>
+<dl class="docutils">
+<dt>K: csr matrix</dt>
+<dd>CSR matrix of shape = [n_nodes, n_features] representing
+the fitted data in the INPUT space (features) but aranged
+as in the OUTPUT space (inter node distance)</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.get_bmu">
+<code class="descname">get_bmu</code><span class="sig-paren">(</span><em>yn</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.get_bmu"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.get_bmu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the ID of the best matching unit.
+Best is determined from the cosine similarity of the
+sample with the normalized Kohonen network.</p>
+<p>See <a class="reference external" href="https://en.wikipedia.org/wiki/Cosine_similarity">https://en.wikipedia.org/wiki/Cosine_similarity</a>
+for cosine similarity documentation.
+TODO: make possible the finding the second best matching unit</p>
+<dl class="docutils">
+<dt>KN <span class="classifier-delimiter">:</span> <span class="classifier">sparse matrix</span></dt>
+<dd>Shape = [n_nodes, n_features] must be normalized according to
+l2 norm as used in the sklearn Normalizer()</dd>
+<dt>y <span class="classifier-delimiter">:</span> <span class="classifier">vector of dimension 1 x nfeatures</span></dt>
+<dd>Target sample.</dd>
+</dl>
+<dl class="docutils">
+<dt>tuple <span class="classifier-delimiter">:</span> <span class="classifier">(loc, cosine_distance)</span></dt>
+<dd>index of the matching unit, with the corresponding cosine distance</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.get_params">
+<code class="descname">get_params</code><span class="sig-paren">(</span><em>deep=True</em><span class="sig-paren">)</span><a class="headerlink" href="#som.som.SOMMapper.get_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get parameters for this estimator.</p>
+<dl class="docutils">
+<dt>deep: boolean, optional</dt>
+<dd>If True, will return the parameters for this estimator and
+contained subobjects that are estimators.</dd>
+</dl>
+<dl class="docutils">
+<dt>params <span class="classifier-delimiter">:</span> <span class="classifier">mapping of string to any</span></dt>
+<dd>Parameter names mapped to their values.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.measure_topological_error">
+<code class="descname">measure_topological_error</code><span class="sig-paren">(</span><em>samples</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.measure_topological_error"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.measure_topological_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Known as the average distance between two best matching units</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.predict">
+<code class="descname">predict</code><span class="sig-paren">(</span><em>X</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.predict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict the position of the samples in the estimator Kohonen a simple
+features check is performed.</p>
+<dl class="docutils">
+<dt>X: matrix</dt>
+<dd>CSR matrix of shape = [n_samples, n_features]</dd>
+</dl>
+<dl class="docutils">
+<dt>Y: array</dt>
+<dd>Shape =  [n_samples]
+Index of the node each sample belongs to.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.score">
+<code class="descname">score</code><span class="sig-paren">(</span><em>X</em>, <em>y</em>, <em>sample_weight=None</em><span class="sig-paren">)</span><a class="headerlink" href="#som.som.SOMMapper.score" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the mean accuracy on the given test data and labels.</p>
+<p>In multi-label classification, this is the subset accuracy
+which is a harsh metric since you require for each sample that
+each label set be correctly predicted.</p>
+<dl class="docutils">
+<dt>X <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = (n_samples, n_features)</span></dt>
+<dd>Test samples.</dd>
+<dt>y <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = (n_samples) or (n_samples, n_outputs)</span></dt>
+<dd>True labels for X.</dd>
+<dt>sample_weight <span class="classifier-delimiter">:</span> <span class="classifier">array-like, shape = [n_samples], optional</span></dt>
+<dd>Sample weights.</dd>
+</dl>
+<dl class="docutils">
+<dt>score <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>Mean accuracy of self.predict(X) wrt. y.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.set_params">
+<code class="descname">set_params</code><span class="sig-paren">(</span><em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#som.som.SOMMapper.set_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the parameters of this estimator.</p>
+<p>The method works on simple estimators as well as on nested objects
+(such as pipelines). The former have parameters of the form
+<code class="docutils literal"><span class="pre">&lt;component&gt;__&lt;parameter&gt;</span></code> so that it&#8217;s possible to update each
+component of a nested object.</p>
+<p>self</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="som.som.SOMMapper.transform">
+<code class="descname">transform</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#SOMMapper.transform"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.SOMMapper.transform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the Kohonen map as representing the output space.
+Parameters:
+&#8212;&#8212;&#8212;&#8211;</p>
+<dl class="docutils">
+<dt>X: matrix</dt>
+<dd>CSR matrix of shape = [n_samples, n_features]</dd>
+</dl>
+<dl class="docutils">
+<dt>K: csr matrix</dt>
+<dd>CSR matrix of shape = [n_nodes, n_features] representing
+the fitted data in the INPUT space (features) but aranged
+as in the OUTPUT space (inter node distance)</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="som.som.build_U_matrix">
+<code class="descclassname">som.som.</code><code class="descname">build_U_matrix</code><span class="sig-paren">(</span><em>kohonenMatrix</em>, <em>kshape</em>, <em>topology</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#build_U_matrix"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.build_U_matrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the Unified Distance matrix given the Kohonen
+map in the input space: expressed as a list of nodes and features.
+The distances are infered from the distance matrix in the
+output space. Only the nearest neighbors are selected.</p>
+<dl class="docutils">
+<dt>kohonenMatrix: ndarray</dt>
+<dd>The matrix upon which to build the U matrix
+Shape = [n_nodes, n_features]</dd>
+</dl>
+<dl class="docutils">
+<dt>U_matrix <span class="classifier-delimiter">:</span> <span class="classifier">ndarray</span></dt>
+<dd>Matrix giving for each node the mean distance to its
+neighbors: Shape = [n_nodes]</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="som.som.get_second_bmu">
+<code class="descclassname">som.som.</code><code class="descname">get_second_bmu</code><span class="sig-paren">(</span><em>KN</em>, <em>y</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/som/som.html#get_second_bmu"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#som.som.get_second_bmu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function used for measuring the regularity of the mapping from 
+the INPUT into the OUTPUT space, defined as the distance between the
+two best matching units for a sample. The mean of this measure
+for all the units is the topological error.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="index.html" class="btn btn-neutral" title="Welcome to som documentation!" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2015, Frederic Husser.
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

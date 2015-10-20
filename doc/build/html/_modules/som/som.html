@@ -1,0 +1,619 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>som.som &mdash; som 0 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="som 0 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+
+        
+          <a href="../../index.html" class="icon icon-home"> som
+        
+
+        
+        </a>
+
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+        
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../som.html"><code class="docutils literal"><span class="pre">som</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../som.html#module-som.som">Self Organizing maps documentation</a></li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../../index.html">som</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      
+    <li>som.som</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <h1>Source code for som.som</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="kn">as</span> <span class="nn">sparse</span>
+<span class="kn">from</span> <span class="nn">sklearn.base</span> <span class="kn">import</span> <span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">ClassifierMixin</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">Normalizer</span>
+<span class="kn">from</span> <span class="nn">sklearn.utils.extmath</span> <span class="kn">import</span> <span class="n">safe_sparse_dot</span><span class="p">,</span> <span class="n">fast_dot</span>
+
+<span class="kn">from</span> <span class="nn">csom</span> <span class="kn">import</span> <span class="n">parallel_single_unit_deltas</span><span class="p">,</span> <span class="n">get_distance_metrics</span>
+
+
+<span class="k">def</span> <span class="nf">debug</span><span class="p">(</span><span class="n">alg</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">alg</span><span class="p">,</span> <span class="n">string</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SOMMapper"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper">[docs]</a><span class="k">class</span> <span class="nc">SOMMapper</span><span class="p">(</span><span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">ClassifierMixin</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This mapper class contains the method for training a self-organized map</span>
+<span class="sd">    from a given training set. Inspired from the PyMVPA framework SOM Mapper</span>
+<span class="sd">    class.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    kshape : (int, int)</span>
+<span class="sd">        Shape of the internal Kohonen layer. Currently, only 2D Kohonen</span>
+<span class="sd">        layers are supported, although the length of an axis might be set</span>
+<span class="sd">        to 1.</span>
+
+<span class="sd">    niter : int</span>
+<span class="sd">        Number of iteration during network training.</span>
+
+<span class="sd">    learning_rate : float</span>
+<span class="sd">        Initial learning rate, which will continuously decreased during</span>
+<span class="sd">        network training.</span>
+
+<span class="sd">    initialization_func: callable or None</span>
+<span class="sd">        Initialization function to set self.K_, that should take one</span>
+<span class="sd">        argument with training samples and return an numpy array. If None,</span>
+<span class="sd">        then values in the returned array are taken from a standard normal</span>
+<span class="sd">        distribution.</span>
+
+<span class="sd">    topology: string</span>
+<span class="sd">        Defines the topology of the map in the output space. Currently is the</span>
+<span class="sd">        square and hexagonal topologies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kshape</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="n">n_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+                 <span class="n">initialization_func</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">infl_decay_type</span><span class="o">=</span><span class="s">&quot;default&quot;</span><span class="p">,</span>
+                 <span class="n">topology</span><span class="o">=</span><span class="s">&quot;rect&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span> <span class="o">=</span> <span class="n">kshape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span> <span class="o">=</span> <span class="n">learning_rate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span> <span class="o">=</span> <span class="n">n_iter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialization_func</span> <span class="o">=</span> <span class="n">initialization_func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">=</span> <span class="n">topology</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">infl_decay_type</span> <span class="o">=</span> <span class="n">infl_decay_type</span>
+
+    <span class="k">def</span> <span class="nf">_initialize_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">K_init</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Initialize the data of the estimator.</span>
+<span class="sd">        Perform some attributes consistency checking and</span>
+<span class="sd">        initialize the Kohonen map. Allows for the user to provide </span>
+<span class="sd">        an existing K_matrix as initialized version. </span>
+<span class="sd">        The provided map must match with the kshape and n_features attributes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dqd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fromfunction</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">y</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">,</span>
+                                    <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s">&#39;float&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">iter_scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quantization_error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">learning_rate_f</span> <span class="o">=</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma_f</span> <span class="o">=</span> <span class="mf">0.2</span>
+
+        <span class="c"># Check the initialized Kohonen map shape consistency</span>
+        <span class="n">check_K_shape</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="n">K_init</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">check_K_shape</span> <span class="o">=</span> <span class="p">((</span><span class="n">K_init</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">)</span> <span class="ow">and</span>
+                             <span class="p">(</span><span class="n">K_init</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+        <span class="c"># Assign the initialized map </span>
+        <span class="k">if</span> <span class="n">check_K_shape</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">K_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">K_init</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">K_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_clean_kohonen</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">KN_</span> <span class="o">=</span> <span class="n">Normalizer</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SOMMapper.fit"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">K_init</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Perform network training.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        X : CSR Sparse Matrix</span>
+<span class="sd">            Used for unsupervised training of the SOM.</span>
+
+<span class="sd">        K_init : CSR sparse matrix / ndarray</span>
+<span class="sd">            Provide a K_matrix for chaining the fit process with a</span>
+<span class="sd">            pre-existing map. The shape must match with the requirements</span>
+<span class="sd">            of the class (n_features from the samples)</span>
+
+<span class="sd">        sparse: bool</span>
+<span class="sd">            If the sample matrix is to processed as a sparse matrix</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+
+<span class="sd">        It is assumed that prior to calling this method the _pretrain method</span>
+<span class="sd">        was called with the same argument.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">K_init</span><span class="o">=</span><span class="n">K_init</span><span class="p">)</span>
+        <span class="n">n_samples</span><span class="p">,</span> <span class="n">n_features</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">XN</span> <span class="o">=</span> <span class="n">Normalizer</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">node_to_coordinates_table</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">node_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s">&#39;int&#39;</span><span class="p">),</span>
+                                               <span class="n">node_index</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                                              <span class="k">for</span> <span class="n">node_index</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">)])</span>
+        <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span><span class="p">):</span>
+            <span class="c"># print it</span>
+            <span class="n">unit_deltas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+            <span class="n">quantization</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+            <span class="n">kernel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_influence_kernel</span><span class="p">(</span><span class="n">it</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">n_samples</span><span class="p">):</span>
+                <span class="n">node_index</span><span class="p">,</span> <span class="n">quantization</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bmu</span><span class="p">(</span><span class="n">XN</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="p">:])</span>
+
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">node_to_coordinates_table</span><span class="p">[</span><span class="n">node_index</span><span class="p">,</span> <span class="p">:]</span>
+
+                <span class="n">infl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fast_unfold_kernel</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+
+                <span class="n">unit_deltas</span> <span class="o">+=</span> <span class="n">parallel_single_unit_deltas</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">K_</span><span class="p">,</span> <span class="n">infl</span><span class="p">,</span>
+                                                           <span class="bp">self</span><span class="o">.</span><span class="n">n_nodes</span><span class="p">,</span> <span class="mf">1.0e-6</span><span class="p">)</span>
+                <span class="c"># unit_deltas+= (X[i,:] - Kohonen)*infl[:,np.newaxis]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">quantization_error</span><span class="p">[</span><span class="n">it</span><span class="p">]</span> <span class="o">=</span> <span class="n">quantization</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">K_</span> <span class="o">+=</span> <span class="n">unit_deltas</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">KN_</span> <span class="o">=</span> <span class="n">Normalizer</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_clean_kohonen</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">measure_topological_error</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+</div>
+<div class="viewcode-block" id="SOMMapper.transform"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.transform">[docs]</a>    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Returns the Kohonen map as representing the output space.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        X: matrix</span>
+<span class="sd">            CSR matrix of shape = [n_samples, n_features]</span>
+
+<span class="sd">        Return:</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        K: csr matrix</span>
+<span class="sd">            CSR matrix of shape = [n_nodes, n_features] representing</span>
+<span class="sd">            the fitted data in the INPUT space (features) but aranged</span>
+<span class="sd">            as in the OUTPUT space (inter node distance)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s">&quot;K_&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">K_</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">debug</span><span class="p">(</span><span class="s">&quot;transform&quot;</span><span class="p">,</span>
+                  <span class="s">&quot;The estimator must be fitted before transforming the data&quot;</span> <span class="o">+</span>
+                  <span class="s">&quot;Consider preferably the fit_transform method&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">None</span>
+</div>
+<div class="viewcode-block" id="SOMMapper.fit_transform"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.fit_transform">[docs]</a>    <span class="k">def</span> <span class="nf">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Implement the combination of the fit and returning the data.</span>
+<span class="sd">        Note that the interface is here simplified so that surveying of</span>
+<span class="sd">        the fitting process is not used.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        X: matrix</span>
+<span class="sd">            CSR matrix of shape = [n_samples, n_features]</span>
+
+<span class="sd">        Return:</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        K: csr matrix</span>
+<span class="sd">            CSR matrix of shape = [n_nodes, n_features] representing</span>
+<span class="sd">            the fitted data in the INPUT space (features) but aranged</span>
+<span class="sd">            as in the OUTPUT space (inter node distance)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="SOMMapper.predict"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.predict">[docs]</a>    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Predict the position of the samples in the estimator Kohonen a simple</span>
+<span class="sd">        features check is performed.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        X: matrix</span>
+<span class="sd">            CSR matrix of shape = [n_samples, n_features]</span>
+
+<span class="sd">        Return:</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        Y: array</span>
+<span class="sd">            Shape =  [n_samples]</span>
+<span class="sd">            Index of the node each sample belongs to.</span>
+
+<span class="sd">            &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">):</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
+
+        <span class="n">XN</span> <span class="o">=</span> <span class="n">Normalizer</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s">&quot;KN_&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">get_bmu</span><span class="p">(</span><span class="n">XN</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])[</span><span class="mi">0</span><span class="p">]</span>
+                             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">debug</span><span class="p">(</span><span class="s">&quot;predict&quot;</span><span class="p">,</span> <span class="s">&quot;The Kohonen network must be trained before use&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">None</span>
+</div>
+<div class="viewcode-block" id="SOMMapper.fit_predict"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.fit_predict">[docs]</a>    <span class="k">def</span> <span class="nf">fit_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Combination of the fitting and placement of the data from the</span>
+<span class="sd">        INPUT space shape = (n_features) to the OUTPUT space shape = n_nodes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_node_to_coordinate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node_index</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the coordinates of the node in the Kohonen map given the</span>
+<span class="sd">        node index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s">&quot;rect&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">node_index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s">&#39;int&#39;</span><span class="p">),</span>
+                             <span class="n">node_index</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">_clean_kohonen</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
+        <span class="k">pass</span>
+        <span class="c"># self.K_[self.K_&lt;epsilon] = 0.</span>
+
+<div class="viewcode-block" id="SOMMapper.measure_topological_error"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.measure_topological_error">[docs]</a>    <span class="k">def</span> <span class="nf">measure_topological_error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">samples</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Known as the average distance between two best matching units</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">topological_error</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_samples</span><span class="p">):</span>
+            <span class="n">bmu1</span><span class="p">,</span> <span class="n">bmu2</span> <span class="o">=</span> <span class="n">get_second_bmu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_</span><span class="p">,</span> <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])</span>
+            <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_to_coordinate</span><span class="p">(</span><span class="n">bmu1</span><span class="p">)</span>
+            <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_to_coordinate</span><span class="p">(</span><span class="n">bmu2</span><span class="p">)</span>
+            <span class="n">topological_error</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y1</span> <span class="o">-</span> <span class="n">y2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">topological_error</span> <span class="o">=</span> <span class="n">topological_error</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="SOMMapper.get_bmu"><a class="viewcode-back" href="../../som.html#som.som.SOMMapper.get_bmu">[docs]</a>    <span class="k">def</span> <span class="nf">get_bmu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">yn</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the ID of the best matching unit.</span>
+<span class="sd">        Best is determined from the cosine similarity of the</span>
+<span class="sd">        sample with the normalized Kohonen network.</span>
+<span class="sd">    </span>
+<span class="sd">        See https://en.wikipedia.org/wiki/Cosine_similarity</span>
+<span class="sd">        for cosine similarity documentation.</span>
+<span class="sd">        TODO: make possible the finding the second best matching unit</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        KN : sparse matrix</span>
+<span class="sd">            Shape = [n_nodes, n_features] must be normalized according to</span>
+<span class="sd">            l2 norm as used in the sklearn Normalizer()</span>
+
+<span class="sd">        y : vector of dimension 1 x nfeatures</span>
+<span class="sd">            Target sample.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tuple : (loc, cosine_distance)</span>
+<span class="sd">            index of the matching unit, with the corresponding cosine distance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># d = ((self.K_-y)**2).sum(axis=1)</span>
+        <span class="c"># loc = np.argmin(d)</span>
+        <span class="c"># qe = np.sqrt(d[loc])</span>
+        <span class="n">similarity</span> <span class="o">=</span> <span class="n">fast_dot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">KN_</span><span class="p">,</span> <span class="n">yn</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">similarity</span><span class="p">)</span>
+        <span class="n">qe</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0e-4</span> <span class="o">+</span> <span class="n">similarity</span><span class="p">[</span><span class="n">loc</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">loc</span><span class="p">,</span> <span class="n">qe</span>
+</div>
+    <span class="k">def</span> <span class="nf">_compute_influence_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">it</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the neighborhood kernel for some iteration.</span>
+<span class="sd">    </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        iter : int</span>
+<span class="sd">            The iteration for which to compute the kernel.</span>
+
+<span class="sd">        dqd : array (nrows x ncolumns)</span>
+<span class="sd">            This is one quadrant of Euclidean distances between Kohonen unit</span>
+<span class="sd">            locations.</span>
+
+<span class="sd">        iter_scale: float</span>
+<span class="sd">            Value of the iteration scaling for decaying function of lrate</span>
+
+<span class="sd">        radius: integer</span>
+<span class="sd">            Value of the max radius of the neighborhood function to decay</span>
+
+<span class="sd">        learning_rate: float</span>
+<span class="sd">            Value of the learning rate to decay with epochs</span>
+<span class="sd">    </span>
+<span class="sd">        Return:</span>
+<span class="sd">        -------</span>
+<span class="sd">        infl:   sparse csr matrix</span>
+<span class="sd">        curr_max_radius: current neighborhood kernel radius</span>
+<span class="sd">        curr_lrate: current value of the learning rate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># compute radius decay for this iteration</span>
+        <span class="n">curr_max_radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">it</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_scale</span><span class="p">)</span>
+        <span class="c"># curr_max_radius = self.radius * iter/self.n_iter</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">infl_decay_type</span> <span class="o">==</span> <span class="s">&quot;default&quot;</span><span class="p">:</span>
+            <span class="n">curr_lrate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="n">it</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_scale</span><span class="p">)</span>
+            <span class="n">infl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dqd</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">curr_max_radius</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="n">infl</span> <span class="o">*=</span> <span class="n">curr_lrate</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">infl_decay_type</span> <span class="o">==</span> <span class="s">&quot;sigma&quot;</span><span class="p">:</span>
+            <span class="n">curr_lrate</span> <span class="o">=</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">learning_rate_f</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">it</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span><span class="p">))</span>
+            <span class="n">curr_lrate</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">learning_rate</span>
+            <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">*</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma_f</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="n">it</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_iter</span><span class="p">))</span>
+            <span class="n">infl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="o">-</span><span class="mf">1.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dqd</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">infl</span> <span class="o">*=</span> <span class="n">curr_lrate</span>
+
+        <span class="c"># hard-limit kernel to max radius</span>
+        <span class="n">infl</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_dqd</span> <span class="o">&gt;</span> <span class="n">curr_max_radius</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.</span>
+        <span class="k">return</span> <span class="n">infl</span>
+
+    <span class="k">def</span> <span class="nf">_fast_unfold_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">kernel</span><span class="p">):</span>
+        <span class="n">kx</span><span class="p">,</span> <span class="n">ky</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kshape</span>
+        <span class="n">infl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">double</span><span class="p">)</span>
+        <span class="n">infl</span><span class="p">[:</span><span class="n">x</span><span class="p">,</span> <span class="p">:</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">[</span><span class="n">x</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">infl</span><span class="p">[:</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:]</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">[</span><span class="n">x</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="n">ky</span> <span class="o">-</span> <span class="n">y</span><span class="p">]</span>
+        <span class="n">infl</span><span class="p">[</span><span class="n">x</span><span class="p">:,</span> <span class="p">:</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">[:</span><span class="n">kx</span> <span class="o">-</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">infl</span><span class="p">[</span><span class="n">x</span><span class="p">:,</span> <span class="n">y</span><span class="p">:]</span> <span class="o">=</span> <span class="n">kernel</span><span class="p">[:</span><span class="n">kx</span> <span class="o">-</span> <span class="n">x</span><span class="p">,</span> <span class="p">:</span><span class="n">ky</span> <span class="o">-</span> <span class="n">y</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">infl</span>
+
+</div>
+<div class="viewcode-block" id="get_second_bmu"><a class="viewcode-back" href="../../som.html#som.som.get_second_bmu">[docs]</a><span class="k">def</span> <span class="nf">get_second_bmu</span><span class="p">(</span><span class="n">KN</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Function used for measuring the regularity of the mapping from </span>
+<span class="sd">    the INPUT into the OUTPUT space, defined as the distance between the</span>
+<span class="sd">    two best matching units for a sample. The mean of this measure</span>
+<span class="sd">    for all the units is the topological error. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">KN</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">bmus</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">bmus</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bmus</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="build_U_matrix"><a class="viewcode-back" href="../../som.html#som.som.build_U_matrix">[docs]</a><span class="k">def</span> <span class="nf">build_U_matrix</span><span class="p">(</span><span class="n">kohonenMatrix</span><span class="p">,</span> <span class="n">kshape</span><span class="p">,</span> <span class="n">topology</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculates the Unified Distance matrix given the Kohonen</span>
+<span class="sd">    map in the input space: expressed as a list of nodes and features.</span>
+<span class="sd">    The distances are infered from the distance matrix in the</span>
+<span class="sd">    output space. Only the nearest neighbors are selected.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    kohonenMatrix: ndarray</span>
+<span class="sd">        The matrix upon which to build the U matrix</span>
+<span class="sd">        Shape = [n_nodes, n_features]</span>
+<span class="sd">    Return:</span>
+<span class="sd">    -------</span>
+<span class="sd">    U_matrix : ndarray</span>
+<span class="sd">        Matrix giving for each node the mean distance to its</span>
+<span class="sd">        neighbors: Shape = [n_nodes]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c"># The matrix must be a lil matrix for fast iteration over rows</span>
+    <span class="n">debug</span><span class="p">(</span><span class="s">&quot;Build_U_matrix&quot;</span><span class="p">,</span> <span class="s">&quot;Starting the calcuation of U_matrix...&quot;</span><span class="p">)</span>
+    <span class="n">KN</span> <span class="o">=</span> <span class="n">Normalizer</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">kohonenMatrix</span><span class="p">)</span>
+
+    <span class="c"># Initilaize the U_matrix as a numpy array</span>
+    <span class="n">n_nodes</span><span class="p">,</span> <span class="n">n_features</span> <span class="o">=</span> <span class="n">kohonenMatrix</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">U_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">)</span>
+
+    <span class="c"># Iterate over the rows (nodes): The Value of the U_Matrix </span>
+    <span class="c"># at the node coordinate is the mean of the distances with all neighbors</span>
+    <span class="k">for</span> <span class="n">i_node</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">):</span>
+        <span class="n">neighbors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">_get_neighbors</span><span class="p">(</span><span class="n">i_node</span><span class="p">,</span> <span class="n">kshape</span><span class="p">,</span> <span class="n">topology</span><span class="o">=</span><span class="n">topology</span><span class="p">))</span>
+        <span class="n">U_matrix</span><span class="p">[</span><span class="n">i_node</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">KN</span><span class="p">[</span><span class="n">i_node</span><span class="p">,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">KN</span><span class="p">[</span><span class="n">neighbors</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">U_matrix</span>
+
+</div>
+<span class="k">def</span> <span class="nf">_get_node_coordinates</span><span class="p">(</span><span class="n">i_node</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns the coordinates of the node i_node</span>
+<span class="sd">    in the output space&quot;&quot;&quot;</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">i_node</span><span class="p">,</span> <span class="n">ncols</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s">&#39;int&#39;</span><span class="p">)</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="n">i_node</span> <span class="o">%</span> <span class="n">ncols</span>
+    <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span>
+
+
+<span class="k">def</span> <span class="nf">_get_neighbors</span><span class="p">(</span><span class="n">i_node</span><span class="p">,</span> <span class="n">kshape</span><span class="p">,</span> <span class="n">topology</span><span class="o">=</span><span class="s">&quot;rect&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns the indices of the array that are to be extracted</span>
+<span class="sd">    from the index of the K matrix. Used for computation of the</span>
+<span class="sd">    U-matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span> <span class="o">=</span> <span class="n">kshape</span>
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">topology</span> <span class="o">==</span> <span class="s">&quot;rect&quot;</span><span class="p">:</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">i_node</span><span class="p">,</span> <span class="n">ncols</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s">&#39;int&#39;</span><span class="p">)</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">i_node</span> <span class="o">%</span> <span class="n">ncols</span>
+        <span class="n">neighbors</span> <span class="o">=</span> <span class="p">[</span><span class="n">ix</span> <span class="o">*</span> <span class="n">ncols</span> <span class="o">+</span> <span class="n">jx</span> <span class="k">for</span> <span class="n">ix</span> <span class="ow">in</span> <span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                     <span class="k">for</span> <span class="n">jx</span> <span class="ow">in</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                     <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">ix</span> <span class="o">==</span> <span class="n">i</span> <span class="ow">and</span> <span class="n">jx</span> <span class="o">==</span> <span class="n">j</span><span class="p">)</span> <span class="ow">and</span>
+                     <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">ix</span> <span class="o">&lt;</span> <span class="n">kshape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span>
+                     <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">jx</span> <span class="o">&lt;</span> <span class="n">kshape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+    <span class="k">return</span> <span class="n">neighbors</span>
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+    <span class="kn">from</span> <span class="nn">sklearn.feature_extraction.image</span> <span class="kn">import</span> <span class="n">grid_to_graph</span>
+    <span class="kn">from</span> <span class="nn">sklearn.cluster</span> <span class="kn">import</span> <span class="n">AgglomerativeClustering</span>
+
+    <span class="n">kshape_test</span> <span class="o">=</span> <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+    <span class="n">n_iter_test</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="n">learning_rate_test</span> <span class="o">=</span> <span class="mf">0.01</span>
+    <span class="n">n_colors</span> <span class="o">=</span> <span class="mi">100</span>
+
+    <span class="n">spcolors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">n_colors</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="n">mapper</span> <span class="o">=</span> <span class="n">SOMMapper</span><span class="p">(</span><span class="n">kshape</span><span class="o">=</span><span class="n">kshape_test</span><span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="n">n_iter_test</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="n">learning_rate_test</span><span class="p">)</span>
+    <span class="n">kohonen</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">spcolors</span><span class="p">)</span>
+    <span class="n">U_Matrix</span> <span class="o">=</span> <span class="n">build_U_matrix</span><span class="p">(</span><span class="n">kohonen</span><span class="p">,</span> <span class="n">kshape_test</span><span class="p">,</span> <span class="n">topology</span><span class="o">=</span><span class="s">&quot;rect&quot;</span><span class="p">)</span>
+
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">211</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">kohonen</span><span class="p">,</span> <span class="n">kshape_test</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">&quot;Kohonen Map&quot;</span><span class="p">)</span>
+
+    <span class="c"># Clustering</span>
+    <span class="n">n_clusters</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c"># number of regions</span>
+    <span class="n">connectivity</span> <span class="o">=</span> <span class="n">grid_to_graph</span><span class="p">(</span><span class="n">kshape_test</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">kshape_test</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">ward</span> <span class="o">=</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">n_clusters</span><span class="p">,</span>
+                                   <span class="n">linkage</span><span class="o">=</span><span class="s">&#39;ward&#39;</span><span class="p">,</span> <span class="n">connectivity</span><span class="o">=</span><span class="n">connectivity</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">kohonen</span><span class="p">)</span>
+
+    <span class="n">label</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ward</span><span class="o">.</span><span class="n">labels_</span><span class="p">,</span> <span class="n">kshape_test</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_clusters</span><span class="p">):</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">contour</span><span class="p">(</span><span class="n">label</span> <span class="o">==</span> <span class="n">l</span><span class="p">,</span> <span class="n">contours</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="n">colors</span><span class="o">=</span><span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">spectral</span><span class="p">(</span><span class="n">l</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">n_clusters</span><span class="p">)),</span> <span class="p">])</span>
+
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">221</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">U_Matrix</span><span class="p">,</span> <span class="n">kshape_test</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s">&quot;U_Matrix&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2015, Frederic Husser.
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
