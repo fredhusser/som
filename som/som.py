@@ -380,7 +380,7 @@ def build_U_matrix(kohonenMatrix, kshape, topology):
     # at the node coordinate is the mean of the distances with all neighbors
     for i_node in np.arange(n_nodes):
         neighbors = np.sort(_get_neighbors(i_node, kshape, topology=topology))
-        U_matrix[i_node] = np.dot(KN[i_node, :], KN[neighbors, :].T).mean()
+        U_matrix[i_node] =1/np.dot(KN[i_node, :], KN[neighbors, :].T).mean() - 1
     return U_matrix
 
 
